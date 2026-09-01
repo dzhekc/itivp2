@@ -1,0 +1,15 @@
+'use strict';
+
+const path = require('path');
+
+/**
+ * sequelize-cli по умолчанию хочет плоские папки config/migrations/models/seeders
+ * в корне проекта. Здесь всё это переносится в слой инфраструктуры,
+ * чтобы вся ORM-обвязка жила рядом с остальным infrastructure-кодом.
+ */
+module.exports = {
+  config: path.resolve('src', 'infrastructure', 'connections', 'config', 'config.js'),
+  'models-path': path.resolve('src', 'infrastructure', 'connections', 'models'),
+  'migrations-path': path.resolve('src', 'infrastructure', 'connections', 'migrations'),
+  'seeders-path': path.resolve('src', 'infrastructure', 'connections', 'seeders'),
+};

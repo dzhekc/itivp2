@@ -1,6 +1,7 @@
 'use strict';
 
-const { InMemoryArticleRepository } = require('../infrastructure/repositories/InMemoryArticleRepository');
+const { DatabaseManager } = require('../infrastructure/connections/DatabaseManager');
+const { SequelizeArticleRepository } = require('../infrastructure/repositories/SequelizeArticleRepository');
 const { generateId } = require('../infrastructure/id/idGenerator');
 
 const { CreateArticle } = require('../application/use-cases/articles/CreateArticle');
@@ -25,10 +26,16 @@ class ApplicationContainer {
     this._app = null;
   }
 
-  /** Инициализация инфраструктуры (репозитории, утилиты). */
-  initInfrastructure() {
-    // In-memory репозиторий для статей (мок данных)
-    this._repositories.articleRepository = new InMemoryArticleRepository();
+  /** Инициализация инфраструктуры (подключение к БД, репозитории, утилиты). */
+  async initInfrastructure() {
+    // Подключение к PostgreSQL через Sequelize
+    this._services.databaseManager = new DatabaseManager();
+    await this._services.databaseManager.connect();
+
+    // Репозиторий статей поверх Postgres
+    this._repositories.articleRepository = new SequelizeArticleRepository({
+      articleModel: this._services.databaseManager.getModel('Article'),
+    });
 
     // Генератор идентификаторов (функция, не класс)
     this._services.idGenerator = generateId;
@@ -82,11 +89,17 @@ class ApplicationContainer {
   }
 
   /** Полная сборка приложения (convenience method). */
-  build() {
-    return this.initInfrastructure()
-      .initUseCases()
-      .initPresentation()
-      .createApp();
+  async build() {
+    await this.initInfrastructure();
+    this.initUseCases();
+    this.initPresentation();
+    this.createApp();
+    return this;
+  }
+
+  /** Аккуратно закрыть внешние соединения — вызывается при graceful shutdown. */
+  async close() {
+    await this._services.databaseManager?.disconnect();
   }
 }
 

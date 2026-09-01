@@ -13,6 +13,7 @@ function toArticleResponse(article) {
     author: article.author,
     tags: article.tags,
     status: article.status,
+    viewsCount: article.viewsCount,
     createdAt: article.createdAt,
     updatedAt: article.updatedAt,
   };

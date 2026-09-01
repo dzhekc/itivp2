@@ -9,7 +9,7 @@ const STATUSES = ['draft', 'published', 'archived'];
  * Хранит данные и сама проверяет свои инварианты.
  */
 class Article {
-  constructor({ id, title, content, category, author, tags, status, createdAt, updatedAt }) {
+  constructor({ id, title, content, category, author, tags, status, viewsCount, createdAt, updatedAt }) {
     this.id = id;
     this.title = title;
     this.content = content;
@@ -17,16 +17,17 @@ class Article {
     this.author = author;
     this.tags = tags;
     this.status = status;
+    this.viewsCount = viewsCount ?? 0;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
 
-  /** Создать новую статью. */
+  /** Создать новую статью. Счётчик просмотров всегда стартует с нуля. */
   static create({ id, title, content, category, author, tags, status }) {
     const data = Article.validate({ title, content, category, author, tags, status });
     const now = new Date().toISOString();
 
-    return new Article({ id, ...data, createdAt: now, updatedAt: now });
+    return new Article({ id, ...data, viewsCount: 0, createdAt: now, updatedAt: now });
   }
 
   /** Полностью перезаписать статью (PUT). */

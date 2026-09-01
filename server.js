@@ -1,30 +1,38 @@
 'use strict';
 
+require('dotenv').config();
+
 const { ApplicationContainer } = require('./src/main/ApplicationContainer');
 
-// Инициализация приложения через DI-контейнер
-const container = new ApplicationContainer();
-container.build();
+async function main() {
+  // Инициализация приложения через DI-контейнер (подключается к Postgres внутри)
+  const container = new ApplicationContainer();
+  await container.build();
 
-const app = container.getApp();
+  const app = container.getApp();
 
-// Порт сервера
-const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 3000;
 
-// Запуск сервера
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Articles API: http://localhost:${PORT}/articles`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Articles API: http://localhost:${PORT}/articles`);
   });
-});
 
-module.exports = { app, server };
+  const shutdown = (signal) => {
+    console.log(`${signal} received, shutting down gracefully...`);
+    server.close(async () => {
+      await container.close();
+      console.log('Server closed');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+main().catch((err) => {
+  console.error('Не удалось запустить сервер:', err);
+  process.exit(1);
+});
