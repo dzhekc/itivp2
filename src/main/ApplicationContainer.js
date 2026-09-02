@@ -13,10 +13,6 @@ const { DeleteArticle } = require('../application/use-cases/articles/DeleteArtic
 const { ArticleRouter } = require('../presentation/http/routes/articleRouter');
 const { createApp } = require('../presentation/http/app');
 
-/**
- * Bootstrap слой - инициализация приложения.
- * Собирает все зависимости в единый контейнер и создаёт Express-приложение.
- */
 class ApplicationContainer {
   constructor() {
     this._repositories = {};
@@ -26,24 +22,19 @@ class ApplicationContainer {
     this._app = null;
   }
 
-  /** Инициализация инфраструктуры (подключение к БД, репозитории, утилиты). */
   async initInfrastructure() {
-    // Подключение к PostgreSQL через Sequelize
     this._services.databaseManager = new DatabaseManager();
     await this._services.databaseManager.connect();
 
-    // Репозиторий статей поверх Postgres
     this._repositories.articleRepository = new SequelizeArticleRepository({
       articleModel: this._services.databaseManager.getModel('Article'),
     });
 
-    // Генератор идентификаторов (функция, не класс)
     this._services.idGenerator = generateId;
 
     return this;
   }
 
-  /** Инициализация use-case'ов (application layer). */
   initUseCases() {
     const { articleRepository } = this._repositories;
     const { idGenerator } = this._services;
@@ -57,7 +48,6 @@ class ApplicationContainer {
     return this;
   }
 
-  /** Инициализация presentation слоя (роутеры, контроллеры). */
   initPresentation() {
     const { createArticle, getArticleById, listArticles, updateArticle, deleteArticle } =
       this._useCases;
@@ -73,14 +63,12 @@ class ApplicationContainer {
     return this;
   }
 
-  /** Создание и настройка Express-приложения. */
   createApp() {
     const { articleRouter } = this._routers;
     this._app = createApp({ articleRouter });
     return this;
   }
 
-  /** Получить готовое Express-приложение. */
   getApp() {
     if (!this._app) {
       throw new Error('Приложение не инициализировано. Вызовите build().');
@@ -88,7 +76,6 @@ class ApplicationContainer {
     return this._app;
   }
 
-  /** Полная сборка приложения (convenience method). */
   async build() {
     await this.initInfrastructure();
     this.initUseCases();
@@ -97,7 +84,6 @@ class ApplicationContainer {
     return this;
   }
 
-  /** Аккуратно закрыть внешние соединения — вызывается при graceful shutdown. */
   async close() {
     await this._services.databaseManager?.disconnect();
   }

@@ -4,10 +4,6 @@ const { ValidationError } = require('../errors');
 
 const STATUSES = ['draft', 'published', 'archived'];
 
-/**
- * Сущность «Статья корпоративной базы знаний».
- * Хранит данные и сама проверяет свои инварианты.
- */
 class Article {
   constructor({ id, title, content, category, author, tags, status, viewsCount, createdAt, updatedAt }) {
     this.id = id;
@@ -22,7 +18,6 @@ class Article {
     this.updatedAt = updatedAt;
   }
 
-  /** Создать новую статью. Счётчик просмотров всегда стартует с нуля. */
   static create({ id, title, content, category, author, tags, status }) {
     const data = Article.validate({ title, content, category, author, tags, status });
     const now = new Date().toISOString();
@@ -30,7 +25,6 @@ class Article {
     return new Article({ id, ...data, viewsCount: 0, createdAt: now, updatedAt: now });
   }
 
-  /** Полностью перезаписать статью (PUT). */
   update({ title, content, category, author, tags, status }) {
     const data = Article.validate({ title, content, category, author, tags, status });
 
@@ -38,10 +32,6 @@ class Article {
     return this;
   }
 
-  /**
-   * Проверка полей. Возвращает нормализованные данные
-   * или бросает ValidationError со списком проблемных полей.
-   */
   static validate({ title, content, category, author, tags, status }) {
     const errors = [];
 

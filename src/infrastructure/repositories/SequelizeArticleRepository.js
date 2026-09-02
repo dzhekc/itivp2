@@ -4,11 +4,7 @@ const { Op } = require('sequelize');
 const { ArticleRepository } = require('../../domain/repositories/ArticleRepository');
 const { Article } = require('../../domain/entities/Article');
 
-/**
- * Реализация порта ArticleRepository поверх Sequelize/PostgreSQL.
- * Domain и application слои об этом не знают — для них это по-прежнему
- * просто ArticleRepository с теми же пятью методами.
- */
+
 class SequelizeArticleRepository extends ArticleRepository {
   constructor({ articleModel }) {
     super();

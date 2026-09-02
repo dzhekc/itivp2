@@ -11,7 +11,6 @@ class CreateArticle {
   }
 
   async execute(data) {
-    // Валидация живёт в сущности — use case только оркестрирует.
     const article = Article.create({ id: this.idGenerator(), ...data });
     const created = await this.articleRepository.create(article);
 

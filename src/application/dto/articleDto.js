@@ -1,9 +1,6 @@
 'use strict';
 
-/**
- * Преобразование доменной сущности в ответ API.
- * Слой application решает, какие поля показывать наружу.
- */
+
 function toArticleResponse(article) {
   return {
     id: article.id,

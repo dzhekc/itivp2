@@ -1,6 +1,5 @@
 'use strict';
 
-/** Базовая доменная ошибка. Домен не знает про HTTP — только про смысл ошибки. */
 class DomainError extends Error {
   constructor(message, code) {
     super(message);
@@ -9,7 +8,6 @@ class DomainError extends Error {
   }
 }
 
-/** Некорректные входные данные → 400. */
 class ValidationError extends DomainError {
   constructor(message, fields = []) {
     super(message, 'VALIDATION_ERROR');
@@ -17,7 +15,6 @@ class ValidationError extends DomainError {
   }
 }
 
-/** Сущность не найдена → 404. */
 class NotFoundError extends DomainError {
   constructor(resource, id) {
     super(`${resource} с id "${id}" не найден`, 'NOT_FOUND');

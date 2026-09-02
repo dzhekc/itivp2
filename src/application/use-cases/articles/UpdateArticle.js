@@ -3,7 +3,6 @@
 const { NotFoundError } = require('../../../domain/errors');
 const { toArticleResponse } = require('../../dto/articleDto');
 
-/** Сценарий: полностью обновить статью (PUT). */
 class UpdateArticle {
   constructor({ articleRepository }) {
     this.articleRepository = articleRepository;

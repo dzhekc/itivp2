@@ -2,7 +2,6 @@
 
 const { NotFoundError } = require('../../../domain/errors');
 
-/** Сценарий: удалить статью. */
 class DeleteArticle {
   constructor({ articleRepository }) {
     this.articleRepository = articleRepository;

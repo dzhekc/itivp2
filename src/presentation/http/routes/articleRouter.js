@@ -3,10 +3,6 @@
 const express = require('express');
 const { asyncHandler } = require('../middlewares/asyncHandler');
 
-/**
- * Роутер для CRUD-операций со статьями.
- * Зависит от use-case'ов, которые передаются через зависимости.
- */
 class ArticleRouter {
   constructor({ createArticle, getArticleById, listArticles, updateArticle, deleteArticle }) {
     this.createArticle = createArticle;
@@ -19,7 +15,7 @@ class ArticleRouter {
   getRouter() {
     const router = express.Router();
 
-    // GET /articles - получить список всех статей (с фильтрами)
+    // GET /articles
     router.get('/', asyncHandler(async (req, res) => {
       const filters = {};
       if (req.query.category) filters.category = req.query.category;
@@ -31,27 +27,27 @@ class ArticleRouter {
       res.json(articles);
     }));
 
-    // GET /articles/:id - получить одну статью по ID
+    // GET /articles/:id
     router.get('/:id', asyncHandler(async (req, res) => {
       const article = await this.getArticleById.execute(req.params.id);
       res.json(article);
     }));
 
-    // POST /articles - создать новую статью
+    // POST /articles
     router.post('/', asyncHandler(async (req, res) => {
       const dto = req.body;
       const article = await this.createArticle.execute(dto);
       res.status(201).json(article);
     }));
 
-    // PUT /articles/:id - полностью обновить статью
+    // PUT /articles/:id
     router.put('/:id', asyncHandler(async (req, res) => {
       const dto = { id: req.params.id, ...req.body };
       const article = await this.updateArticle.execute(dto);
       res.json(article);
     }));
 
-    // DELETE /articles/:id - удалить статью
+    // DELETE /articles/:id
     router.delete('/:id', asyncHandler(async (req, res) => {
       await this.deleteArticle.execute(req.params.id);
       res.status(204).send();
