@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-wiki:
     image: docker-proxy.artifactory.tcsbank.ru/postgres:15
     container_name: wiki_postgres
     restart: unless-stopped
@@ -10,7 +10,7 @@ services:
     ports:
       - '${DB_PORT}:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data-wiki:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
       interval: 5s
@@ -18,4 +18,4 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  postgres_data-wiki:

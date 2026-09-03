@@ -1,15 +1,14 @@
 'use strict';
 
-/**
- * id намеренно не указывается — колонка articles.id имеет дефолт UUIDV4
- * (см. миграцию create-articles), Postgres сгенерирует его сам.
- */
+const { randomUUID } = require('node:crypto');
+
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
 
     await queryInterface.bulkInsert('articles', [
       {
+        id: randomUUID(),
         title: 'Как оформить отпуск',
         content:
           'Заявление подаётся в HR-портале не позднее чем за две недели до начала отпуска.',
@@ -22,6 +21,7 @@ module.exports = {
         updatedAt: now,
       },
       {
+        id: randomUUID(),
         title: 'Соглашение об именовании веток в Git',
         content:
           'Ветки называем по схеме feature/JIRA-123-short-description, релизные — release/x.y.z.',
@@ -34,6 +34,7 @@ module.exports = {
         updatedAt: now,
       },
       {
+        id: randomUUID(),
         title: 'Подключение к корпоративному VPN',
         content:
           'Установите клиент, импортируйте профиль из письма службы поддержки и войдите по SSO.',

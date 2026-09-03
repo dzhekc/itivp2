@@ -21,4 +21,16 @@ class NotFoundError extends DomainError {
   }
 }
 
-module.exports = { DomainError, ValidationError, NotFoundError };
+class ConflictError extends DomainError {
+  constructor(message) {
+    super(message, 'CONFLICT');
+  }
+}
+
+class UnauthorizedError extends DomainError {
+  constructor(message) {
+    super(message, 'UNAUTHORIZED');
+  }
+}
+
+module.exports = { DomainError, ValidationError, NotFoundError, ConflictError, UnauthorizedError };

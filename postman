@@ -1,0 +1,84 @@
+Health check
+  curl --location 'http://localhost:3000/health'
+
+  Регистрация
+  curl --location 'http://localhost:3000/auth/register' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "email": "user@example.com",
+    "password": "supersecret"
+  }'
+
+  Вход
+  curl --location 'http://localhost:3000/auth/login' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "email": "user@example.com",
+    "password": "supersecret"
+  }'
+
+  Обновление токенов
+  curl --location 'http://localhost:3000/auth/refresh' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "refreshToken": "<refreshToken>"
+  }'
+
+  Смена пароля (нужен access-токен)
+  curl --location 'http://localhost:3000/auth/change-password' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer <accessToken>' \
+  --data '{
+    "oldPassword": "supersecret",
+    "newPassword": "evenmoresecret"
+  }'
+
+  Текущий пользователь (через /auth/me)
+  curl --location 'http://localhost:3000/auth/me' \
+  --header 'Authorization: Bearer <accessToken>'
+
+  Текущий пользователь (через /profile)
+  curl --location 'http://localhost:3000/profile' \
+  --header 'Authorization: Bearer <accessToken>'
+
+  Список статей
+  curl --location 'http://localhost:3000/articles'
+
+  Список статей с фильтрами
+  curl --location 'http://localhost:3000/articles?category=HR'
+  curl --location 'http://localhost:3000/articles?status=published'
+  curl --location 'http://localhost:3000/articles?tag=git'
+  curl --location 'http://localhost:3000/articles?search=vpn'
+
+  Статья по id
+  curl --location 'http://localhost:3000/articles/<id>'
+
+  Создать статью (нужен access-токен)
+  curl --location 'http://localhost:3000/articles' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer <accessToken>' \
+  --data '{
+    "title": "Как получить доступ к Confluence",
+    "content": "Доступ выдаётся автоматически при выходе на работу через SSO.",
+    "category": "IT-поддержка",
+    "author": "Смирнова Е.",
+    "tags": ["доступы", "confluence"],
+    "status": "draft"
+  }'
+
+  Обновить статью (PUT) (нужен access-токен)
+
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer <accessToken>' \
+  --data '{
+    "title": "Как получить доступ к Confluence",
+    "content": "Доступ выдаётся автоматически при выходе на работу через SSO. Обновлено.",
+    "category": "IT-поддержка",
+    "author": "Смирнова Е.",
+    "tags": ["доступы", "confluence"],
+    "status": "published"
+  }'
+
+  Удалить статью (нужен access-токен)
+  curl --location --request DELETE 'http://localhost:3000/articles/<id>' \
+  --header 'Authorization: Bearer <accessToken>'

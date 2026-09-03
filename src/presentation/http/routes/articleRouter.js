@@ -4,12 +4,13 @@ const express = require('express');
 const { asyncHandler } = require('../middlewares/asyncHandler');
 
 class ArticleRouter {
-  constructor({ createArticle, getArticleById, listArticles, updateArticle, deleteArticle }) {
+  constructor({ createArticle, getArticleById, listArticles, updateArticle, deleteArticle, authenticate }) {
     this.createArticle = createArticle;
     this.getArticleById = getArticleById;
     this.listArticles = listArticles;
     this.updateArticle = updateArticle;
     this.deleteArticle = deleteArticle;
+    this.authenticate = authenticate;
   }
 
   getRouter() {
@@ -34,21 +35,21 @@ class ArticleRouter {
     }));
 
     // POST /articles
-    router.post('/', asyncHandler(async (req, res) => {
+    router.post('/', this.authenticate, asyncHandler(async (req, res) => {
       const dto = req.body;
       const article = await this.createArticle.execute(dto);
       res.status(201).json(article);
     }));
 
     // PUT /articles/:id
-    router.put('/:id', asyncHandler(async (req, res) => {
+    router.put('/:id', this.authenticate, asyncHandler(async (req, res) => {
       const dto = { id: req.params.id, ...req.body };
       const article = await this.updateArticle.execute(dto);
       res.json(article);
     }));
 
     // DELETE /articles/:id
-    router.delete('/:id', asyncHandler(async (req, res) => {
+    router.delete('/:id', this.authenticate, asyncHandler(async (req, res) => {
       await this.deleteArticle.execute(req.params.id);
       res.status(204).send();
     }));

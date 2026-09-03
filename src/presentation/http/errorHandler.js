@@ -1,6 +1,6 @@
 'use strict';
 
-const { DomainError, ValidationError, NotFoundError } = require('../../domain/errors');
+const { DomainError, ValidationError, NotFoundError, ConflictError, UnauthorizedError } = require('../../domain/errors');
 
 /**
  * Глобальный обработчик ошибок Express.
@@ -23,6 +23,26 @@ function errorHandler(err, req, res, next) {
   // Сущность не найдена → 404
   if (err instanceof NotFoundError) {
     return res.status(404).json({
+      error: {
+        code: err.code,
+        message: err.message,
+      },
+    });
+  }
+
+  // Конфликт (например, дубликат email) → 409
+  if (err instanceof ConflictError) {
+    return res.status(409).json({
+      error: {
+        code: err.code,
+        message: err.message,
+      },
+    });
+  }
+
+  // Не авторизован / неверные учётные данные / невалидный токен → 401
+  if (err instanceof UnauthorizedError) {
+    return res.status(401).json({
       error: {
         code: err.code,
         message: err.message,

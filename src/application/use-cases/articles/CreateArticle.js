@@ -3,7 +3,6 @@
 const { Article } = require('../../../domain/entities/Article');
 const { toArticleResponse } = require('../../dto/articleDto');
 
-/** Сценарий: создать новую статью. */
 class CreateArticle {
   constructor({ articleRepository, idGenerator }) {
     this.articleRepository = articleRepository;

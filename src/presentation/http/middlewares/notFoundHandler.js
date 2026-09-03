@@ -1,6 +1,5 @@
 'use strict';
 
-/** Ни один маршрут не подошёл — отвечаем 404. */
 function notFoundHandler(req, res) {
   res.status(404).json({
     error: {
