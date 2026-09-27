@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useArticles } from '../store/ArticlesContext.jsx';
-import { CATEGORIES, STATUSES } from '../data/mockArticles.js';
+import { isTempId, useArticles } from '../store/ArticlesContext.jsx';
+import { useAuth } from '../store/AuthContext.jsx';
+import { useServerSearch } from '../hooks/useServerSearch.js';
+import { CATEGORIES, STATUSES } from '../constants.js';
 import { formatShortDate, plural } from '../utils/format.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -14,9 +16,12 @@ const SORTS = {
 };
 
 const SORT_KEY = 'wiki.list.sort';
+// Сервер требует текст не короче 10 символов, а быстрый черновик создаётся только с заголовком.
+const DRAFT_PLACEHOLDER = 'Черновик страницы. Добавьте сюда текст статьи.';
 
 export default function ArticleListPage() {
-  const { articles, isLoading, addArticle, removeArticle, resetToMock } = useArticles();
+  const { articles, isLoading, error, reload, addArticle, removeArticle } = useArticles();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -29,6 +34,7 @@ export default function ArticleListPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
   const [toDelete, setToDelete] = useState(null);
+  const search = useServerSearch(query);
 
   useEffect(() => {
     localStorage.setItem(SORT_KEY, sort);
@@ -40,11 +46,11 @@ export default function ArticleListPage() {
       : `Статьи (${articles.length}) — Вики`;
   }, [articles.length, isLoading]);
 
-  const setParam = (key, value) => {
+  const setParam = (key, value, options) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value);
     else next.delete(key);
-    setSearchParams(next);
+    setSearchParams(next, options);
   };
 
   const byId = useMemo(() => new Map(articles.map((a) => [a.id, a])), [articles]);
@@ -60,28 +66,25 @@ export default function ArticleListPage() {
     [articles],
   );
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return articles
-      .filter((a) => status === 'all' || a.status === status)
-      .filter((a) => !category || a.category === category)
-      .filter((a) => !tag || a.tags.includes(tag))
-      .filter(
-        (a) =>
-          !q ||
-          a.title.toLowerCase().includes(q) ||
-          a.content.toLowerCase().includes(q) ||
-          a.tags.some((t) => t.includes(q)),
-      )
-      .sort(SORTS[sort].fn);
-  }, [articles, status, category, tag, query, sort]);
+  // Текстовый поиск выполняет сервер (useServerSearch), остальные фильтры — на клиенте.
+  const visible = useMemo(
+    () =>
+      articles
+        .filter((a) => !search.ids || search.ids.has(a.id))
+        .filter((a) => status === 'all' || a.status === status)
+        .filter((a) => !category || a.category === category)
+        .filter((a) => !tag || a.tags.includes(tag))
+        .sort(SORTS[sort].fn),
+    [articles, search.ids, status, category, tag, sort],
+  );
 
   const handleQuickAdd = (e) => {
     e.preventDefault();
     const title = newTitle.trim();
     if (title.length < 3) return;
-    addArticle({ title, category: newCategory, author: 'Лозюк Е.' });
+    // Поле очищается сразу: строка появится в таблице ещё до ответа сервера.
     setNewTitle('');
+    addArticle({ title, category: newCategory, author: 'Лозюк Е.', content: DRAFT_PLACEHOLDER });
   };
 
   const hasFilters = query || category || tag || status !== 'all';
@@ -121,24 +124,34 @@ export default function ArticleListPage() {
         </div>
       </div>
 
-      <form className="quick-add" onSubmit={handleQuickAdd}>
-        <input
-          type="text"
-          placeholder="Название нового черновика"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-        />
-        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
-          {CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <button type="submit" className="btn" disabled={newTitle.trim().length < 3}>
-          Добавить черновик
-        </button>
-      </form>
+      {user && (
+        <form className="quick-add" onSubmit={handleQuickAdd}>
+          <input
+            type="text"
+            placeholder="Название нового черновика"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
+          <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
+            {CATEGORIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <button type="submit" className="btn" disabled={newTitle.trim().length < 3}>
+            Добавить черновик
+          </button>
+        </form>
+      )}
 
       <div className="filters">
+        <input
+          className="filters-search"
+          type="search"
+          placeholder="Поиск по заголовку, тексту и тегам"
+          value={query}
+          onChange={(e) => setParam('q', e.target.value, { replace: true })}
+        />
+
         <div className="segmented">
           {[['all', 'Все'], ...Object.entries(STATUSES)].map(([value, label]) => (
             <button
@@ -186,10 +199,20 @@ export default function ArticleListPage() {
               </button>
             </span>
           )}
+          {search.isSearching && <span className="search-status muted">Ищем на сервере…</span>}
+          {search.error && <span className="search-status search-status-error">{search.error}</span>}
         </div>
       )}
 
-      {isLoading ? (
+      {error ? (
+        <div className="error-state">
+          <p className="error-state-title">Не удалось загрузить статьи</p>
+          <p className="muted">{error}</p>
+          <button type="button" className="btn" onClick={reload}>
+            Повторить
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="table-skeleton">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="skeleton-line" style={{ height: 18, marginBottom: 18 }} />
@@ -197,7 +220,13 @@ export default function ArticleListPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="empty">
-          <p>{hasFilters ? 'Нет статей, подходящих под фильтры.' : 'Статей пока нет.'}</p>
+          <p>
+            {search.isSearching
+              ? 'Ищем…'
+              : hasFilters
+                ? 'Нет статей, подходящих под фильтры.'
+                : 'Статей пока нет.'}
+          </p>
           {hasFilters ? (
             <button
               type="button"
@@ -210,9 +239,9 @@ export default function ArticleListPage() {
               Сбросить фильтры
             </button>
           ) : (
-            <button type="button" className="btn" onClick={resetToMock}>
-              Загрузить демо-данные
-            </button>
+            <Link to="/new" className="btn">
+              Создать первую статью
+            </Link>
           )}
         </div>
       ) : (
@@ -231,12 +260,19 @@ export default function ArticleListPage() {
           <tbody>
             {visible.map((a) => {
               const parent = a.parentId ? byId.get(a.parentId) : null;
+              // У новой статьи до ответа сервера временный id — ссылаться на неё пока нельзя.
+              const isNew = isTempId(a.id);
               return (
-                <tr key={a.id}>
+                <tr key={a.id} className={a.isPending ? 'is-pending' : ''}>
                   <td>
-                    <Link to={`/articles/${a.id}`} className="table-title">
-                      {a.title}
-                    </Link>
+                    {isNew ? (
+                      <span className="table-title">{a.title}</span>
+                    ) : (
+                      <Link to={`/articles/${a.id}`} className="table-title">
+                        {a.title}
+                      </Link>
+                    )}
+                    {a.isPending && <span className="pending-label">сохранение…</span>}
                     {parent && <div className="table-sub">в «{parent.title}»</div>}
                   </td>
                   <td>{a.category}</td>
@@ -247,12 +283,16 @@ export default function ArticleListPage() {
                   <td className="nowrap">{formatShortDate(a.updatedAt)}</td>
                   <td className="num">{a.viewsCount}</td>
                   <td className="table-actions">
-                    <button type="button" className="link-btn" onClick={() => navigate(`/articles/${a.id}/edit`)}>
-                      Изменить
-                    </button>
-                    <button type="button" className="link-btn link-btn-danger" onClick={() => setToDelete(a)}>
-                      Удалить
-                    </button>
+                    {user && !isNew && (
+                      <>
+                        <button type="button" className="link-btn" onClick={() => navigate(`/articles/${a.id}/edit`)}>
+                          Изменить
+                        </button>
+                        <button type="button" className="link-btn link-btn-danger" onClick={() => setToDelete(a)}>
+                          Удалить
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               );
@@ -261,7 +301,7 @@ export default function ArticleListPage() {
         </table>
       )}
 
-      {!isLoading && visible.length > 0 && (
+      {!isLoading && !error && visible.length > 0 && (
         <div className="table-footer muted">
           Показано {visible.length} из {articles.length}
         </div>
@@ -271,6 +311,7 @@ export default function ArticleListPage() {
         <ConfirmDialog
           title="Удалить статью?"
           onConfirm={() => {
+            // Строка исчезает сразу; если сервер откажет, она вернётся и появится уведомление.
             removeArticle(toDelete.id);
             setToDelete(null);
           }}

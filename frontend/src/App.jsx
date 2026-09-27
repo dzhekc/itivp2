@@ -5,6 +5,8 @@ import ArticleListPage from './pages/ArticleListPage.jsx';
 import ArticlePage from './pages/ArticlePage.jsx';
 import ArticleEditorPage from './pages/ArticleEditorPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import RequireAuth from './components/RequireAuth.jsx';
 
 export default function App() {
   const location = useLocation();
@@ -19,9 +21,24 @@ export default function App() {
           <Routes>
             <Route path="/" element={<ArticleListPage />} />
             {/* key пересоздаёт редактор при переходе между страницами создания/редактирования */}
-            <Route path="/new" element={<ArticleEditorPage key={editorKey} />} />
+            <Route
+              path="/new"
+              element={
+                <RequireAuth>
+                  <ArticleEditorPage key={editorKey} />
+                </RequireAuth>
+              }
+            />
             <Route path="/articles/:id" element={<ArticlePage />} />
-            <Route path="/articles/:id/edit" element={<ArticleEditorPage key={editorKey} />} />
+            <Route
+              path="/articles/:id/edit"
+              element={
+                <RequireAuth>
+                  <ArticleEditorPage key={editorKey} />
+                </RequireAuth>
+              }
+            />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

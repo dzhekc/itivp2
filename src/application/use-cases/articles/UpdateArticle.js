@@ -2,6 +2,7 @@
 
 const { NotFoundError } = require('../../../domain/errors');
 const { toArticleResponse } = require('../../dto/articleDto');
+const { assertValidParent } = require('./assertValidParent');
 
 class UpdateArticle {
   constructor({ articleRepository }) {
@@ -16,6 +17,7 @@ class UpdateArticle {
     }
 
     article.update(updateData);
+    await assertValidParent(this.articleRepository, article.parentId, article.id);
     const updated = await this.articleRepository.update(article);
 
     return toArticleResponse(updated);

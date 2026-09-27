@@ -13,13 +13,19 @@ import './styles.css';
 
 import App from './App.jsx';
 import { ArticlesProvider } from './store/ArticlesContext.jsx';
+import { AuthProvider } from './store/AuthContext.jsx';
+import { ToastProvider } from './store/ToastContext.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <ArticlesProvider>
-        <App />
-      </ArticlesProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ArticlesProvider>
+            <App />
+          </ArticlesProvider>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   </StrictMode>,
 );

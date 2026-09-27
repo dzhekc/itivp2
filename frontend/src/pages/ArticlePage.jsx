@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useArticles } from '../store/ArticlesContext.jsx';
+import { useAuth } from '../store/AuthContext.jsx';
 import { getAncestors } from '../utils/tree.js';
 import { parseContent, Markup } from '../utils/markup.jsx';
 import { formatDate, plural } from '../utils/format.js';
@@ -21,7 +22,8 @@ function initials(name) {
 export default function ArticlePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { articles, isLoading, removeArticle, registerView } = useArticles();
+  const { articles, isLoading, error, reload, removeArticle, registerView } = useArticles();
+  const { user } = useAuth();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const viewedRef = useRef(null);
 
@@ -38,7 +40,8 @@ export default function ArticlePage() {
     if (article) document.title = `${article.title} — Вики`;
   }, [article?.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Счётчик просмотров: один раз на открытие статьи (ref защищает от двойного вызова в StrictMode).
+  // Счётчик просмотров (POST /articles/:id/views): один раз на открытие статьи,
+  // ref защищает от двойного вызова эффекта в StrictMode.
   useEffect(() => {
     if (isLoading || !article || viewedRef.current === id) return;
     viewedRef.current = id;
@@ -57,11 +60,26 @@ export default function ArticlePage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="page">
+        <div className="error-state">
+          <p className="error-state-title">Не удалось загрузить статью</p>
+          <p className="muted">{error}</p>
+          <button type="button" className="btn" onClick={reload}>
+            Повторить
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!article) return <NotFoundPage />;
 
+  // Уходим со страницы сразу (оптимистично); если сервер откажет, статья вернётся в список.
   const handleDelete = () => {
-    removeArticle(article.id);
     navigate(article.parentId ? `/articles/${article.parentId}` : '/');
+    removeArticle(article.id);
   };
 
   return (
@@ -82,17 +100,24 @@ export default function ArticlePage() {
 
           <div className="article-toolbar">
             <StatusBadge status={article.status} />
-            <div className="article-actions">
-              <Link to={`/new?parent=${article.id}`} className="btn btn-ghost">
-                Дочерняя страница
+            {user ? (
+              <div className="article-actions">
+                {article.isPending && <span className="pending-label">сохранение…</span>}
+                <Link to={`/new?parent=${article.id}`} className="btn btn-ghost">
+                  Дочерняя страница
+                </Link>
+                <Link to={`/articles/${article.id}/edit`} className="btn">
+                  Редактировать
+                </Link>
+                <button type="button" className="btn btn-ghost btn-ghost-danger" onClick={() => setConfirmDelete(true)}>
+                  Удалить
+                </button>
+              </div>
+            ) : (
+              <Link to={`/login?next=${encodeURIComponent(`/articles/${article.id}`)}`} className="btn btn-ghost">
+                Войти, чтобы редактировать
               </Link>
-              <Link to={`/articles/${article.id}/edit`} className="btn">
-                Редактировать
-              </Link>
-              <button type="button" className="btn btn-ghost btn-ghost-danger" onClick={() => setConfirmDelete(true)}>
-                Удалить
-              </button>
-            </div>
+            )}
           </div>
 
           <h1 className="article-title">{article.title}</h1>

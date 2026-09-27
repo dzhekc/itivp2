@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Icon from './Icon.jsx';
+import { isTempId } from '../store/ArticlesContext.jsx';
 
 export default function PageTree({ nodes, activeId, expanded, forceExpanded, onToggle, depth = 0 }) {
   return (
@@ -27,17 +28,21 @@ export default function PageTree({ nodes, activeId, expanded, forceExpanded, onT
               ) : (
                 <span className="tree-toggle-placeholder" />
               )}
-              <Link to={`/articles/${article.id}`} className="tree-link" title={article.title}>
-                {article.title}
-              </Link>
+              {isTempId(article.id) ? (
+                <span className="tree-link" title="Сохраняется на сервере…">
+                  {article.title}
+                </span>
+              ) : (
+                <Link to={`/articles/${article.id}`} className="tree-link" title={article.title}>
+                  {article.title}
+                </Link>
+              )}
               {article.status === 'draft' && <span className="tree-draft-dot" title="Черновик" />}
-              <Link
-                to={`/new?parent=${article.id}`}
-                className="tree-add"
-                title="Создать дочернюю страницу"
-              >
-                <Icon name="plus" size={14} />
-              </Link>
+              {!isTempId(article.id) && (
+                <Link to={`/new?parent=${article.id}`} className="tree-add" title="Создать дочернюю страницу">
+                  <Icon name="plus" size={14} />
+                </Link>
+              )}
             </div>
             {hasChildren && isOpen && (
               <PageTree

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useArticles } from '../store/ArticlesContext.jsx';
-import { CATEGORIES, STATUSES } from '../data/mockArticles.js';
+import { isTempId, useArticles } from '../store/ArticlesContext.jsx';
+import { CATEGORIES, STATUSES } from '../constants.js';
 import { getDescendantIds } from '../utils/tree.js';
 import { parseContent, Markup } from '../utils/markup.jsx';
 import { parseTags } from '../utils/format.js';
@@ -44,7 +44,7 @@ export default function ArticleEditorPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { articles, isLoading, addArticle, updateArticle } = useArticles();
+  const { articles, isLoading, error, reload, addArticle, updateArticle } = useArticles();
 
   const isEdit = Boolean(id);
   const article = isEdit ? articles.find((a) => a.id === id) : null;
@@ -55,6 +55,7 @@ export default function ArticleEditorPage() {
   const [tab, setTab] = useState('write');
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const initialFormRef = useRef(null);
 
   // Инициализация формы после загрузки данных: из черновика, из статьи или пустая.
@@ -109,11 +110,25 @@ export default function ArticleEditorPage() {
     if (!form) return [];
     const excluded = isEdit ? getDescendantIds(articles, id) : new Set();
     return articles
-      .filter((a) => a.category === form.category && a.id !== id && !excluded.has(a.id))
+      .filter((a) => a.category === form.category && a.id !== id && !excluded.has(a.id) && !isTempId(a.id))
       .sort((x, y) => x.title.localeCompare(y.title, 'ru'));
   }, [articles, form, id, isEdit]);
 
   const preview = useMemo(() => (tab === 'preview' && form ? parseContent(form.content) : null), [tab, form]);
+
+  if (error) {
+    return (
+      <div className="page page-editor">
+        <div className="error-state">
+          <p className="error-state-title">Не удалось загрузить данные для редактора</p>
+          <p className="muted">{error}</p>
+          <button type="button" className="btn" onClick={reload}>
+            Повторить
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoading && isEdit && !article) return <NotFoundPage />;
 
@@ -149,11 +164,18 @@ export default function ArticleEditorPage() {
     navigate(isEdit ? `/articles/${id}` : -1);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
     const found = validate(form);
     setErrors(found);
-    if (Object.keys(found).length) return;
+    const firstInvalid = Object.keys(found)[0];
+    if (firstInvalid) {
+      // Ставим курсор в поле, которое нужно исправить (текст — только на вкладке «Текст»).
+      if (firstInvalid === 'content') setTab('write');
+      requestAnimationFrame(() => e.target.elements[firstInvalid]?.focus());
+      return;
+    }
 
     const data = {
       title: form.title.trim(),
@@ -165,13 +187,25 @@ export default function ArticleEditorPage() {
       content: form.content.trim(),
     };
 
-    localStorage.removeItem(draftKey);
     if (isEdit) {
-      updateArticle(id, data);
+      // Правка применяется к списку сразу, поэтому переходим к статье не дожидаясь ответа.
+      // Черновик удаляем только после успешного PUT: при ошибке изменения откатятся,
+      // но останутся в черновике и восстановятся при следующем открытии редактора.
       navigate(`/articles/${id}`);
-    } else {
-      const created = addArticle(data);
+      const saved = await updateArticle(id, data);
+      if (saved) localStorage.removeItem(draftKey);
+      return;
+    }
+
+    // Новая статья уже видна в дереве с временным id, но открыть её можно
+    // только после ответа сервера, когда появится настоящий id.
+    setIsSaving(true);
+    const created = await addArticle(data);
+    if (created) {
+      localStorage.removeItem(draftKey);
       navigate(`/articles/${created.id}`);
+    } else {
+      setIsSaving(false);
     }
   };
 
@@ -191,8 +225,8 @@ export default function ArticleEditorPage() {
             <button type="button" className="btn btn-ghost" onClick={handleCancel}>
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary">
-              {isEdit ? 'Сохранить' : 'Создать'}
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Сохранение…' : isEdit ? 'Сохранить' : 'Создать'}
             </button>
           </div>
         </div>
@@ -206,15 +240,19 @@ export default function ArticleEditorPage() {
           </div>
         )}
 
-        <input
-          className={`editor-title ${errors.title ? 'has-error' : ''}`}
-          type="text"
-          placeholder="Заголовок страницы"
-          value={form.title}
-          onChange={set('title')}
-          autoFocus={!isEdit}
-        />
-        {errors.title && <div className="field-error">{errors.title}</div>}
+        <label className="editor-title-field">
+          <span>Заголовок</span>
+          <input
+            name="title"
+            className={`editor-title ${errors.title ? 'has-error' : ''}`}
+            type="text"
+            placeholder="Например: Как оформить отпуск"
+            value={form.title}
+            onChange={set('title')}
+            autoFocus={!isEdit}
+          />
+        </label>
+        {errors.title && <div className="field-error">Заголовок: {errors.title.toLowerCase()}</div>}
 
         <div className="editor-fields">
           <label className="field">
@@ -254,6 +292,7 @@ export default function ArticleEditorPage() {
             <input
               type="text"
               value={form.author}
+              name="author"
               onChange={set('author')}
               className={errors.author ? 'has-error' : ''}
             />
@@ -281,6 +320,7 @@ export default function ArticleEditorPage() {
             <textarea
               className={`editor-textarea ${errors.content ? 'has-error' : ''}`}
               value={form.content}
+              name="content"
               onChange={set('content')}
               placeholder="Текст статьи…"
             />

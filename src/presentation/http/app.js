@@ -4,11 +4,13 @@ const express = require('express');
 const { errorHandler } = require('./errorHandler');
 const { notFoundHandler } = require('./middlewares/notFoundHandler');
 const { asyncHandler } = require('./middlewares/asyncHandler');
+const { createCors } = require('./middlewares/cors');
 
 
 function createApp({ articleRouter, authRouter, authenticate, getCurrentUser }) {
   const app = express();
 
+  app.use(createCors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 

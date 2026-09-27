@@ -20,6 +20,14 @@ class ArticleRepository {
   async delete(id) {
     throw new Error('Не реализовано: delete');
   }
+
+  async reparentChildren(fromParentId, toParentId) {
+    throw new Error('Не реализовано: reparentChildren');
+  }
+
+  async incrementViews(id) {
+    throw new Error('Не реализовано: incrementViews');
+  }
 }
 
 module.exports = { ArticleRepository };

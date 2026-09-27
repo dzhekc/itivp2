@@ -4,6 +4,7 @@
 function toArticleResponse(article) {
   return {
     id: article.id,
+    parentId: article.parentId,
     title: article.title,
     content: article.content,
     category: article.category,

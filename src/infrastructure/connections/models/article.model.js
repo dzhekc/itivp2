@@ -29,6 +29,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 0,
       },
+      // Добавлено миграцией add-parent-id-to-articles (лаба 5).
+      parentId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
     },
     {
       tableName: 'articles',

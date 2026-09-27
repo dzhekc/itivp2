@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../store/AuthContext.jsx';
 
 function SearchForm({ initialQuery }) {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ function SearchForm({ initialQuery }) {
 export default function Header() {
   const [searchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
+  const { user, logout } = useAuth();
 
   return (
     <header className="header">
@@ -45,9 +47,20 @@ export default function Header() {
         Создать
       </Link>
 
-      <div className="header-user" title="Лозюк Е.">
-        ЛЕ
-      </div>
+      {user ? (
+        <>
+          <div className="header-user" title={user.email}>
+            {user.email.slice(0, 2).toUpperCase()}
+          </div>
+          <button type="button" className="btn btn-ghost" onClick={logout}>
+            Выйти
+          </button>
+        </>
+      ) : (
+        <Link to="/login" className="btn">
+          Войти
+        </Link>
+      )}
     </header>
   );
 }

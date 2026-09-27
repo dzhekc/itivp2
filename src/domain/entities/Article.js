@@ -3,10 +3,12 @@
 const { ValidationError } = require('../errors');
 
 const STATUSES = ['draft', 'published', 'archived'];
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class Article {
-  constructor({ id, title, content, category, author, tags, status, viewsCount, createdAt, updatedAt }) {
+  constructor({ id, title, content, category, author, tags, status, viewsCount, parentId, createdAt, updatedAt }) {
     this.id = id;
+    this.parentId = parentId ?? null;
     this.title = title;
     this.content = content;
     this.category = category;
@@ -18,21 +20,21 @@ class Article {
     this.updatedAt = updatedAt;
   }
 
-  static create({ id, title, content, category, author, tags, status }) {
-    const data = Article.validate({ title, content, category, author, tags, status });
+  static create({ id, title, content, category, author, tags, status, parentId }) {
+    const data = Article.validate({ title, content, category, author, tags, status, parentId });
     const now = new Date().toISOString();
 
     return new Article({ id, ...data, viewsCount: 0, createdAt: now, updatedAt: now });
   }
 
-  update({ title, content, category, author, tags, status }) {
-    const data = Article.validate({ title, content, category, author, tags, status });
+  update({ title, content, category, author, tags, status, parentId }) {
+    const data = Article.validate({ title, content, category, author, tags, status, parentId });
 
     Object.assign(this, data, { updatedAt: new Date().toISOString() });
     return this;
   }
 
-  static validate({ title, content, category, author, tags, status }) {
+  static validate({ title, content, category, author, tags, status, parentId }) {
     const errors = [];
 
     if (typeof title !== 'string' || title.trim().length < 3) {
@@ -53,6 +55,10 @@ class Article {
     if (status !== undefined && !STATUSES.includes(status)) {
       errors.push({ field: 'status', message: `допустимые значения: ${STATUSES.join(', ')}` });
     }
+    // Пустое значение означает страницу верхнего уровня.
+    if (parentId && (typeof parentId !== 'string' || !UUID_REGEX.test(parentId))) {
+      errors.push({ field: 'parentId', message: 'должен быть UUID существующей статьи или null' });
+    }
 
     if (errors.length > 0) {
       throw new ValidationError('Некорректные данные статьи', errors);
@@ -65,6 +71,7 @@ class Article {
       author: author.trim(),
       tags: (tags || []).map((tag) => String(tag).trim().toLowerCase()),
       status: status || 'draft',
+      parentId: parentId || null,
     };
   }
 }

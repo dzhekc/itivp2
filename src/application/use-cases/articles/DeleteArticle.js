@@ -8,10 +8,14 @@ class DeleteArticle {
   }
 
   async execute(id) {
-    const deleted = await this.articleRepository.delete(id);
-    if (!deleted) {
+    const article = await this.articleRepository.findById(id);
+    if (!article) {
       throw new NotFoundError('Статья', id);
     }
+
+    // Дочерние страницы не удаляются, а поднимаются на уровень выше.
+    await this.articleRepository.reparentChildren(id, article.parentId);
+    await this.articleRepository.delete(id);
   }
 }
 

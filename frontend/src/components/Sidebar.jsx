@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useArticles } from '../store/ArticlesContext.jsx';
-import { CATEGORIES } from '../data/mockArticles.js';
+import { CATEGORIES } from '../constants.js';
 import { buildTree, getAncestors } from '../utils/tree.js';
 import { plural } from '../utils/format.js';
 import PageTree from './PageTree.jsx';
@@ -29,7 +29,7 @@ function filterNodes(nodes, q) {
 }
 
 export default function Sidebar() {
-  const { articles, isLoading } = useArticles();
+  const { articles, isLoading, error, reload } = useArticles();
   const location = useLocation();
   const activeId = location.pathname.match(/^\/articles\/([^/]+)/)?.[1] ?? null;
 
@@ -116,9 +116,19 @@ export default function Sidebar() {
           </div>
         )}
 
-        {!isLoading && visibleTree.length === 0 && <div className="sidebar-empty">Ничего не найдено</div>}
+        {error && (
+          <div className="sidebar-empty">
+            Не удалось загрузить страницы.{' '}
+            <button type="button" className="link-btn" onClick={reload}>
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !error && visibleTree.length === 0 && <div className="sidebar-empty">Ничего не найдено</div>}
 
         {!isLoading &&
+          !error &&
           visibleTree.map(({ category, nodes }) => {
             const isOpen = q || !collapsedCategories.has(category);
             return (

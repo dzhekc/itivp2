@@ -13,6 +13,7 @@ const { GetArticleById } = require('../application/use-cases/articles/GetArticle
 const { ListArticles } = require('../application/use-cases/articles/ListArticles');
 const { UpdateArticle } = require('../application/use-cases/articles/UpdateArticle');
 const { DeleteArticle } = require('../application/use-cases/articles/DeleteArticle');
+const { RegisterArticleView } = require('../application/use-cases/articles/RegisterArticleView');
 
 const { RegisterUser } = require('../application/use-cases/auth/RegisterUser');
 const { LoginUser } = require('../application/use-cases/auth/LoginUser');
@@ -62,6 +63,7 @@ class ApplicationContainer {
     this._useCases.listArticles = new ListArticles({ articleRepository });
     this._useCases.updateArticle = new UpdateArticle({ articleRepository });
     this._useCases.deleteArticle = new DeleteArticle({ articleRepository });
+    this._useCases.registerArticleView = new RegisterArticleView({ articleRepository });
 
     this._useCases.registerUser = new RegisterUser({ userRepository, passwordHasher, idGenerator });
     this._useCases.loginUser = new LoginUser({ userRepository, passwordHasher, tokenService, tokenHasher });
@@ -79,6 +81,7 @@ class ApplicationContainer {
       listArticles,
       updateArticle,
       deleteArticle,
+      registerArticleView,
       registerUser,
       loginUser,
       refreshTokens,
@@ -95,6 +98,7 @@ class ApplicationContainer {
       listArticles,
       updateArticle,
       deleteArticle,
+      registerArticleView,
       authenticate,
     }).getRouter();
 

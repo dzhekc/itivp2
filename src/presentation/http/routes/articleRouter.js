@@ -4,12 +4,13 @@ const express = require('express');
 const { asyncHandler } = require('../middlewares/asyncHandler');
 
 class ArticleRouter {
-  constructor({ createArticle, getArticleById, listArticles, updateArticle, deleteArticle, authenticate }) {
+  constructor({ createArticle, getArticleById, listArticles, updateArticle, deleteArticle, registerArticleView, authenticate }) {
     this.createArticle = createArticle;
     this.getArticleById = getArticleById;
     this.listArticles = listArticles;
     this.updateArticle = updateArticle;
     this.deleteArticle = deleteArticle;
+    this.registerArticleView = registerArticleView;
     this.authenticate = authenticate;
   }
 
@@ -46,6 +47,12 @@ class ArticleRouter {
       const dto = { id: req.params.id, ...req.body };
       const article = await this.updateArticle.execute(dto);
       res.json(article);
+    }));
+
+    // POST /articles/:id/views — счётчик просмотров, доступен без авторизации
+    router.post('/:id/views', asyncHandler(async (req, res) => {
+      const result = await this.registerArticleView.execute(req.params.id);
+      res.json(result);
     }));
 
     // DELETE /articles/:id

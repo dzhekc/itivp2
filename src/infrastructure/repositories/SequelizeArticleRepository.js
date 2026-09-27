@@ -4,6 +4,11 @@ const { Op } = require('sequelize');
 const { ArticleRepository } = require('../../domain/repositories/ArticleRepository');
 const { Article } = require('../../domain/entities/Article');
 
+// Колонка id имеет тип uuid: Postgres падает на приведении строки вроде "abc",
+// поэтому такие id сразу считаем несуществующими (404 вместо 500).
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (id) => typeof id === 'string' && UUID_REGEX.test(id);
+
 
 class SequelizeArticleRepository extends ArticleRepository {
   constructor({ articleModel }) {
@@ -18,9 +23,11 @@ class SequelizeArticleRepository extends ArticleRepository {
     if (status) where.status = status;
     if (tag) where.tags = { [Op.contains]: [String(tag).trim().toLowerCase()] };
     if (search) {
+      const term = String(search).trim();
       where[Op.or] = [
-        { title: { [Op.iLike]: `%${search}%` } },
-        { content: { [Op.iLike]: `%${search}%` } },
+        { title: { [Op.iLike]: `%${term}%` } },
+        { content: { [Op.iLike]: `%${term}%` } },
+        { tags: { [Op.contains]: [term.toLowerCase()] } },
       ];
     }
 
@@ -29,6 +36,7 @@ class SequelizeArticleRepository extends ArticleRepository {
   }
 
   async findById(id) {
+    if (!isUuid(id)) return null;
     const row = await this.articleModel.findByPk(id);
     return row ? toDomain(row) : null;
   }
@@ -49,8 +57,25 @@ class SequelizeArticleRepository extends ArticleRepository {
   }
 
   async delete(id) {
+    if (!isUuid(id)) return false;
     const affected = await this.articleModel.destroy({ where: { id } });
     return affected > 0;
+  }
+
+  async reparentChildren(fromParentId, toParentId) {
+    // silent: переезд в дереве не считается правкой содержимого, updatedAt не трогаем.
+    await this.articleModel.update(
+      { parentId: toParentId },
+      { where: { parentId: fromParentId }, silent: true },
+    );
+  }
+
+  async incrementViews(id) {
+    if (!isUuid(id)) return null;
+    // Атомарный UPDATE ... SET "viewsCount" = "viewsCount" + 1, без гонки при параллельных просмотрах.
+    await this.articleModel.increment('viewsCount', { where: { id }, silent: true });
+    const row = await this.articleModel.findByPk(id, { attributes: ['viewsCount'] });
+    return row ? row.viewsCount : null;
   }
 }
 
@@ -66,6 +91,7 @@ function toDomain(row) {
 function toPersistence(article) {
   return {
     id: article.id,
+    parentId: article.parentId,
     title: article.title,
     content: article.content,
     category: article.category,
