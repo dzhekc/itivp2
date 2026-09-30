@@ -17,5 +17,24 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo-wiki:
+    image: docker-proxy.artifactory.tcsbank.ru/mongo:7
+    container_name: wiki_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-wiki}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-wiki}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-wiki_db}
+    ports:
+      - '${MONGO_PORT:-27017}:27017'
+    volumes:
+      - mongo_data-wiki:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data-wiki:
+  mongo_data-wiki:

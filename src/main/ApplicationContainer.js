@@ -1,7 +1,9 @@
 'use strict';
 
 const { DatabaseManager } = require('../infrastructure/connections/DatabaseManager');
+const { MongoManager } = require('../infrastructure/connections/mongo/MongoManager');
 const { SequelizeArticleRepository } = require('../infrastructure/repositories/SequelizeArticleRepository');
+const { MongoArticleRepository } = require('../infrastructure/repositories/MongoArticleRepository');
 const { SequelizeUserRepository } = require('../infrastructure/repositories/SequelizeUserRepository');
 const { BcryptPasswordHasher } = require('../infrastructure/security/BcryptPasswordHasher');
 const { JwtTokenService } = require('../infrastructure/security/JwtTokenService');
@@ -39,9 +41,22 @@ class ApplicationContainer {
     this._services.databaseManager = new DatabaseManager();
     await this._services.databaseManager.connect();
 
-    this._repositories.articleRepository = new SequelizeArticleRepository({
-      articleModel: this._services.databaseManager.getModel('Article'),
-    });
+    // Лаба 6: статьи хранятся в MongoDB; реализация на Postgres оставлена
+    // и включается через ARTICLES_STORAGE=postgres. Пользователи всегда в Postgres.
+    const articlesStorage = process.env.ARTICLES_STORAGE || 'mongo';
+    if (articlesStorage === 'mongo') {
+      this._services.mongoManager = new MongoManager();
+      await this._services.mongoManager.connect();
+      this._repositories.articleRepository = new MongoArticleRepository({
+        collection: this._services.mongoManager.getCollection('articles'),
+      });
+    } else if (articlesStorage === 'postgres') {
+      this._repositories.articleRepository = new SequelizeArticleRepository({
+        articleModel: this._services.databaseManager.getModel('Article'),
+      });
+    } else {
+      throw new Error(`Неизвестное ARTICLES_STORAGE: ${articlesStorage} (ожидается mongo или postgres)`);
+    }
     this._repositories.userRepository = new SequelizeUserRepository({
       userModel: this._services.databaseManager.getModel('User'),
     });
@@ -138,6 +153,7 @@ class ApplicationContainer {
   }
 
   async close() {
+    await this._services.mongoManager?.disconnect();
     await this._services.databaseManager?.disconnect();
   }
 }
