@@ -14,7 +14,6 @@ function buildClientConfig() {
         username: process.env.MONGO_USER || 'wiki',
         password: process.env.MONGO_PASSWORD || 'wiki',
       },
-      // Пользователь создаётся контейнером через MONGO_INITDB_ROOT_*, поэтому он живёт в базе admin.
       authSource: 'admin',
     },
   };
