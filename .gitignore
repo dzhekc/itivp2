@@ -6,3 +6,7 @@ npm-debug.log
 *.log
 .env
 *.docx
+.npmrc
+.tclaude-docker.status
+settings.json
+SKILL.md
