@@ -7,6 +7,7 @@ import { parseContent, Markup } from '../utils/markup.jsx';
 import { formatDate, plural } from '../utils/format.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import ArticleChat from '../components/ArticleChat.jsx';
 import NotFoundPage from './NotFoundPage.jsx';
 
 function initials(name) {
@@ -168,6 +169,8 @@ export default function ArticlePage() {
           <footer className="article-footer">
             Создано {formatDate(article.createdAt)}
           </footer>
+
+          <ArticleChat key={article.id} articleId={article.id} />
         </article>
 
         {headings.length > 1 && (

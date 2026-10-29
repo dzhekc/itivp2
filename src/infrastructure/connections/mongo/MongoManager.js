@@ -40,6 +40,10 @@ class MongoManager {
       { key: { tags: 1 } },
       { key: { createdAt: -1 } },
     ]);
+
+    await this.getCollection('chat_messages').createIndexes([
+      { key: { articleId: 1, createdAt: -1 } },
+    ]);
   }
 
   async disconnect() {

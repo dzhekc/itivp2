@@ -5,6 +5,7 @@ const { MongoManager } = require('../infrastructure/connections/mongo/MongoManag
 const { SequelizeArticleRepository } = require('../infrastructure/repositories/SequelizeArticleRepository');
 const { MongoArticleRepository } = require('../infrastructure/repositories/MongoArticleRepository');
 const { SequelizeUserRepository } = require('../infrastructure/repositories/SequelizeUserRepository');
+const { MongoChatRepository } = require('../infrastructure/repositories/MongoChatRepository');
 const { BcryptPasswordHasher } = require('../infrastructure/security/BcryptPasswordHasher');
 const { JwtTokenService } = require('../infrastructure/security/JwtTokenService');
 const { Sha256TokenHasher } = require('../infrastructure/security/Sha256TokenHasher');
@@ -17,6 +18,9 @@ const { UpdateArticle } = require('../application/use-cases/articles/UpdateArtic
 const { DeleteArticle } = require('../application/use-cases/articles/DeleteArticle');
 const { RegisterArticleView } = require('../application/use-cases/articles/RegisterArticleView');
 
+const { ListChatMessages } = require('../application/use-cases/chat/ListChatMessages');
+const { PostChatMessage } = require('../application/use-cases/chat/PostChatMessage');
+
 const { RegisterUser } = require('../application/use-cases/auth/RegisterUser');
 const { LoginUser } = require('../application/use-cases/auth/LoginUser');
 const { RefreshTokens } = require('../application/use-cases/auth/RefreshTokens');
@@ -27,6 +31,7 @@ const { ArticleRouter } = require('../presentation/http/routes/articleRouter');
 const { AuthRouter } = require('../presentation/http/routes/authRouter');
 const { createAuthenticate } = require('../presentation/http/middlewares/authenticate');
 const { createApp } = require('../presentation/http/app');
+const { createRealtimeServer } = require('../presentation/ws/chatServer');
 
 class ApplicationContainer {
   constructor() {
@@ -41,12 +46,15 @@ class ApplicationContainer {
     this._services.databaseManager = new DatabaseManager();
     await this._services.databaseManager.connect();
 
+    // Чат (лаба 7) хранится в MongoDB независимо от того, где лежат статьи,
+    // поэтому подключение к Mongo открываем всегда.
+    this._services.mongoManager = new MongoManager();
+    await this._services.mongoManager.connect();
+
     // Лаба 6: статьи хранятся в MongoDB; реализация на Postgres оставлена
     // и включается через ARTICLES_STORAGE=postgres. Пользователи всегда в Postgres.
     const articlesStorage = process.env.ARTICLES_STORAGE || 'mongo';
     if (articlesStorage === 'mongo') {
-      this._services.mongoManager = new MongoManager();
-      await this._services.mongoManager.connect();
       this._repositories.articleRepository = new MongoArticleRepository({
         collection: this._services.mongoManager.getCollection('articles'),
       });
@@ -59,6 +67,9 @@ class ApplicationContainer {
     }
     this._repositories.userRepository = new SequelizeUserRepository({
       userModel: this._services.databaseManager.getModel('User'),
+    });
+    this._repositories.chatRepository = new MongoChatRepository({
+      collection: this._services.mongoManager.getCollection('chat_messages'),
     });
 
     this._services.idGenerator = generateId;
@@ -85,6 +96,12 @@ class ApplicationContainer {
     this._useCases.refreshTokens = new RefreshTokens({ userRepository, tokenService, tokenHasher });
     this._useCases.changePassword = new ChangePassword({ userRepository, passwordHasher });
     this._useCases.getCurrentUser = new GetCurrentUser({ userRepository });
+
+    this._useCases.listChatMessages = new ListChatMessages({ chatRepository: this._repositories.chatRepository });
+    this._useCases.postChatMessage = new PostChatMessage({
+      chatRepository: this._repositories.chatRepository,
+      idGenerator,
+    });
 
     return this;
   }
@@ -144,6 +161,18 @@ class ApplicationContainer {
     return this._app;
   }
 
+  // Socket.IO вешается на тот же HTTP-сервер, что и Express (лаба 7).
+  attachRealtime(httpServer) {
+    this._services.io = createRealtimeServer({
+      httpServer,
+      tokenService: this._services.tokenService,
+      listChatMessages: this._useCases.listChatMessages,
+      postChatMessage: this._useCases.postChatMessage,
+      getArticleById: this._useCases.getArticleById,
+    });
+    return this._services.io;
+  }
+
   async build() {
     await this.initInfrastructure();
     this.initUseCases();
@@ -153,6 +182,8 @@ class ApplicationContainer {
   }
 
   async close() {
+    // io.close() закрывает и сам HTTP-сервер, поэтому делаем это до disconnect баз.
+    await this._services.io?.close();
     await this._services.mongoManager?.disconnect();
     await this._services.databaseManager?.disconnect();
   }

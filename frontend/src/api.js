@@ -37,6 +37,14 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+export function getAccessToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function hasRefreshToken() {
+  return Boolean(localStorage.getItem(REFRESH_TOKEN_KEY));
+}
+
 /* ---------- Перехватчики ---------- */
 
 api.interceptors.request.use((config) => {
@@ -48,14 +56,21 @@ api.interceptors.request.use((config) => {
 // Один общий запрос на обновление, даже если одновременно упало несколько запросов.
 let refreshPromise = null;
 
-function refreshTokens() {
+export function refreshSession() {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) return Promise.reject(new Error('Нет refresh-токена'));
+
   refreshPromise ??= axios
-    .post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY) })
+    .post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken })
     .then(({ data }) => saveSession(data))
     .finally(() => {
       refreshPromise = null;
     });
   return refreshPromise;
+}
+
+function refreshTokens() {
+  return refreshSession();
 }
 
 // Access-токен живёт час. На 401 пробуем обновить его по refresh-токену и повторить запрос.
