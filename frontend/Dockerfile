@@ -24,9 +24,9 @@ RUN if [ -n "$GITLAB_NETRC_PASSWORD" ]; then \
     fi
 
 # Адреса API и WebSocket подставляются на этапе сборки.
-# По умолчанию фронтенд ходит на backend напрямую: http://localhost:5000.
-ARG VITE_API_URL=http://localhost:5000
-ARG VITE_SOCKET_URL=http://localhost:5000
+# По умолчанию фронтенд ходит на backend напрямую: http://localhost:5001.
+ARG VITE_API_URL=http://localhost:5001
+ARG VITE_SOCKET_URL=http://localhost:5001
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_SOCKET_URL=$VITE_SOCKET_URL
 
@@ -41,12 +41,17 @@ RUN RD_VERSION=$(node -p "require('./node_modules/rolldown/package.json').versio
 COPY frontend/ ./
 RUN npm run build
 
-# Этап 2: runner — Nginx отдаёт статику SPA.
-FROM docker-proxy.artifactory.tcsbank.ru/nginx:alpine AS runner
+# Этап 2: runner — Node статик-сервер отдаёт SPA (без Nginx).
+FROM docker-hosted.artifactory.tcsbank.ru/sec-base-images/blanc/ubuntu-jammy-nodejs-26-cicd:latest AS runner
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/frontend/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
+COPY --from=builder /app/frontend/dist ./dist
+COPY frontend/server.js ./server.js
 
-CMD ["nginx", "-g", "daemon off;"]
+ENV STATIC_DIR=/app/dist \
+    PORT=8080
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]
