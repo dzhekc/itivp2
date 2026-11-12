@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.env
+.git
+.idea
+.vscode
+.nessy
+.tclaude-docker.status
+logs
+tmp
+skrins
+*.docx
+postman
+postman_collection.json
+Dockerfile
+docker-compose.yml
+.dockerignore

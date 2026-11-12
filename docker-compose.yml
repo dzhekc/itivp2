@@ -1,4 +1,12 @@
+# Многоконтейнерное развёртывание курсового проекта (Лабораторная работа №8)
+#
+# Поднятие всех сервисов:                docker compose up --build
+# Проверка:                              http://localhost  (frontend)
+#                                        http://localhost:5001/health (backend)
+#                                        http://localhost:8081 (mongo-express)
+# Секреты и настройки — из .env (переменные окружения).
 services:
+  # --- База данных: PostgreSQL (пользователи и токены) ---
   postgres-wiki:
     image: docker-proxy.artifactory.tcsbank.ru/postgres:15
     container_name: wiki_postgres
@@ -8,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - '${DB_PORT}:5432'
+      - '${DB_PORT:-5432}:5432'
     volumes:
       - postgres_data-wiki:/var/lib/postgresql/data
     healthcheck:
@@ -16,7 +24,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - backend_net
 
+  # --- База данных: MongoDB (статьи и чат) ---
   mongo-wiki:
     image: docker-proxy.artifactory.tcsbank.ru/mongo:7
     container_name: wiki_mongo
@@ -34,7 +45,103 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - backend_net
+
+  # --- Backend: Node.js/Express + Socket.IO ---
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Для скачивания prebuilt-бинарников (bcrypt) с gitlab.tcsbank.ru
+        GITLAB_NETRC_PASSWORD: ${GITLAB_NETRC_PASSWORD}
+    container_name: wiki_backend
+    restart: unless-stopped
+    depends_on:
+      postgres-wiki:
+        condition: service_healthy
+      mongo-wiki:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: postgres-wiki
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      MONGO_HOST: mongo-wiki
+      MONGO_PORT: 27017
+      MONGO_USER: ${MONGO_USER:-wiki}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-wiki}
+      MONGO_DB: ${MONGO_DB:-wiki_db}
+      ARTICLES_STORAGE: ${ARTICLES_STORAGE:-mongo}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-1h}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost}
+    ports:
+      - '5001:3000'
+    volumes:
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - backend_net
+      - frontend_net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:5001}
+        GITLAB_NETRC_PASSWORD: ${GITLAB_NETRC_PASSWORD}
+    container_name: wiki_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '80:80'
+    networks:
+      - frontend_net
+
+  # --- Веб-интерфейс управления MongoDB (доп. требование) ---
+  mongo-express:
+    image: docker-proxy.artifactory.tcsbank.ru/mongo-express:latest
+    container_name: wiki_mongo_express
+    restart: unless-stopped
+    depends_on:
+      mongo-wiki:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo-wiki
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER:-wiki}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-wiki}
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGOEXPRESS_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGOEXPRESS_PASSWORD:-admin}
+    ports:
+      - '8081:8081'
+    networks:
+      - backend_net
+      - frontend_net
+
+
+networks:
+  backend_net:
+    driver: bridge
+  frontend_net:
+    driver: bridge
 
 volumes:
   postgres_data-wiki:
   mongo_data-wiki:
+  backend_logs:
