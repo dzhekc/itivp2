@@ -10,3 +10,6 @@ npm-debug.log
 .tclaude-docker.status
 settings.json
 SKILL.md
+logs/
+.nessy/
+.claude/
